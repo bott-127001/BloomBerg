@@ -1,6 +1,5 @@
 ﻿import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import SignalCard from '../components/SignalCard';
 import ScanTable from '../components/ScanTable';
 import HistoryTable from '../components/HistoryTable';
 import RegimeBadge from '../components/RegimeBadge';
@@ -31,6 +30,7 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const [today, setToday] = useState(null);
   const [history, setHistory] = useState([]);
+  const [activeTab, setActiveTab] = useState('live');
   const [clock, setClock] = useState(formatClock());
   const [indices, setIndices] = useState({ nifty50: null, indiaVix: null, marketOpen: false });
 
@@ -94,16 +94,16 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white p-4 md:p-8 space-y-5">
-      <header className="flex items-center justify-between gap-3 bg-slate-900 border border-slate-700 rounded-lg p-4">
-        <div className="text-xl font-bold">Nifty Signal</div>
-        <div className="text-sm text-slate-200">{clock} IST</div>
-        <button onClick={logout} className="bg-slate-700 hover:bg-slate-600 px-3 py-1 rounded">Logout</button>
+    <div className="min-h-screen bg-slate-950 text-white p-3 md:p-8 space-y-3 md:space-y-5">
+      <header className="flex items-center justify-between gap-2 md:gap-3 bg-slate-900 border border-slate-700 rounded-lg p-3 md:p-4">
+        <div className="text-lg md:text-xl font-bold">Nifty Signal</div>
+        <div className="text-xs md:text-sm text-slate-200">{clock} IST</div>
+        <button onClick={logout} className="bg-slate-700 hover:bg-slate-600 px-2.5 md:px-3 py-1 rounded text-xs md:text-sm">Logout</button>
       </header>
 
-      <section className="grid md:grid-cols-4 gap-4 bg-slate-900 border border-slate-700 rounded-lg p-4">
-        <div><p className="text-slate-400 text-xs">Nifty 50</p><p className="text-xl font-semibold">{indices.nifty50?.toFixed?.(2) ?? '-'}</p>{!indices.marketOpen && <p className="text-xs text-slate-500">Closed</p>}</div>
-        <div><p className="text-slate-400 text-xs">India VIX</p><p className="text-xl font-semibold">{indices.indiaVix?.toFixed?.(2) ?? '-'}</p>{!indices.marketOpen && <p className="text-xs text-slate-500">Closed</p>}</div>
+      <section className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 bg-slate-900 border border-slate-700 rounded-lg p-3 md:p-4">
+        <div><p className="text-slate-400 text-[11px] md:text-xs">Nifty 50</p><p className="text-lg md:text-xl font-semibold">{indices.nifty50?.toFixed?.(2) ?? '-'}</p>{!indices.marketOpen && <p className="text-[11px] md:text-xs text-slate-500">Closed</p>}</div>
+        <div><p className="text-slate-400 text-[11px] md:text-xs">India VIX</p><p className="text-lg md:text-xl font-semibold">{indices.indiaVix?.toFixed?.(2) ?? '-'}</p>{!indices.marketOpen && <p className="text-[11px] md:text-xs text-slate-500">Closed</p>}</div>
         <div><p className="text-slate-400 text-xs mb-1">Regime</p><RegimeBadge regime={today?.regime || 'PENDING'} /></div>
         <div
           className={
@@ -114,10 +114,10 @@ export default function Dashboard() {
                 : 'bg-yellow-500/10 border border-yellow-500/20 p-2 rounded'
           }
         >
-          <p className="text-slate-400 text-xs">Avg ATR(5) of scan</p>
-          <p className="text-xl font-semibold">{today?.avgAtrScan != null ? `${today.avgAtrScan.toFixed(2)}%` : '—'}</p>
-          <p className="text-xs text-slate-400">Used for regime tiebreaker when VIX is 15–20</p>
-          <p className="text-xs text-slate-400">
+          <p className="text-slate-400 text-[11px] md:text-xs">Avg ATR(5) of scan</p>
+          <p className="text-lg md:text-xl font-semibold">{today?.avgAtrScan != null ? `${today.avgAtrScan.toFixed(2)}%` : '—'}</p>
+          <p className="text-[11px] md:text-xs text-slate-400">Used for regime tiebreaker when VIX is 15–20</p>
+          <p className="text-[11px] md:text-xs text-slate-400">
             {tiebreakerBand === 'pending' && 'Scan pending — tiebreaker applies after today’s run'}
             {tiebreakerBand === 'decisive' && 'Not used today (VIX is decisive)'}
             {tiebreakerBand === 'active' && 'Active tiebreaker — regime set by this value'}
@@ -125,21 +125,40 @@ export default function Dashboard() {
         </div>
       </section>
 
-      <SignalCard today={today} />
-      <ScanTable
-        rows={today?.scanDetails || []}
-        pending={
-          !today ||
-          today.status === 'pending' ||
-          (today.status === 'FAILED' && !(today.scanDetails && today.scanDetails.length))
-        }
-        pendingBanner={
-          today?.status === 'FAILED' && !(today.scanDetails && today.scanDetails.length)
-            ? 'Scan failed before per-stock rows were available.'
-            : 'Scan runs at 9:28 AM IST'
-        }
-      />
-      <HistoryTable rows={history} />
+      <div className="flex gap-2">
+        <button
+          onClick={() => setActiveTab('live')}
+          className={`px-3 py-1.5 rounded text-xs md:text-sm border ${activeTab === 'live' ? 'bg-slate-700 border-slate-500 text-white' : 'bg-slate-900 border-slate-700 text-slate-300 hover:bg-slate-800'}`}
+        >
+          Live Scan
+        </button>
+        <button
+          onClick={() => setActiveTab('history')}
+          className={`px-3 py-1.5 rounded text-xs md:text-sm border ${activeTab === 'history' ? 'bg-slate-700 border-slate-500 text-white' : 'bg-slate-900 border-slate-700 text-slate-300 hover:bg-slate-800'}`}
+        >
+          Trade History
+        </button>
+      </div>
+
+      {activeTab === 'live' && (
+        <>
+          <ScanTable
+            rows={today?.scanDetails || []}
+            pending={
+              !today ||
+              today.status === 'pending' ||
+              (today.status === 'FAILED' && !(today.scanDetails && today.scanDetails.length))
+            }
+            pendingBanner={
+              today?.status === 'FAILED' && !(today.scanDetails && today.scanDetails.length)
+                ? 'Scan failed before per-stock rows were available.'
+                : 'Scan runs at 9:28 AM IST'
+            }
+          />
+        </>
+      )}
+
+      {activeTab === 'history' && <HistoryTable rows={history} />}
     </div>
   );
 }

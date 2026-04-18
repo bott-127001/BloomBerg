@@ -9,10 +9,17 @@ function getPrevCloseFromDaily(daily) {
   return Number(daily[daily.length - 1][4]);
 }
 
-function computeVolMA10(dailyCandles) {
-  const candles = takeLast(dailyCandles, 10);
-  if (candles.length < 10) return null;
-  return candles.reduce((acc, c) => acc + Number(c[5] || 0), 0) / 10;
+function computeVolMA10From915(fiveMinCandles) {
+  if (!Array.isArray(fiveMinCandles)) return null;
+  const bars915 = fiveMinCandles.filter((candle) => {
+    const ts = new Date(candle[0]);
+    const hh = Number(ts.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', hour12: false }));
+    const mm = Number(ts.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', minute: '2-digit', hour12: false }));
+    return hh === 9 && mm === 15;
+  });
+  const last10 = takeLast(bars915, 10);
+  if (last10.length < 10) return null;
+  return last10.reduce((acc, c) => acc + Number(c[5] || 0), 0) / 10;
 }
 
 function computeATR5Pct(dailyCandles) {
@@ -70,7 +77,7 @@ function computeGapAtrRatio(gapPct, atrPct) {
 }
 
 module.exports = {
-  computeVolMA10,
+  computeVolMA10From915,
   computeATR5Pct,
   computeGapPct,
   computeNiftyMA20,

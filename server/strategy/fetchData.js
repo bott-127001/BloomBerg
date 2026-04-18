@@ -23,6 +23,7 @@ function stripPartialTodayDaily(candles) {
 
 const BASE_URL = 'https://api.upstox.com/v3';
 const dailyCache = new Map();
+const fiveMinHistoryCache = new Map();
 const limiter = new UpstoxRateLimiter();
 let lastDailyIntervalUsed = null;
 let lastIntradayIntervalUsed = null;
@@ -141,6 +142,18 @@ async function getIntradayOneMinuteCandles(instrumentKey) {
   return candles;
 }
 
+async function getHistorical5MinCandles(instrumentKey, fromDate = dateShift(14), toDate = dateShift(0)) {
+  const cacheKey = `${getTodayIST()}::${instrumentKey}`;
+  if (fiveMinHistoryCache.has(cacheKey)) {
+    return fiveMinHistoryCache.get(cacheKey);
+  }
+  const encodedKey = encodeInstrumentKeyForPath(instrumentKey);
+  const path = `/historical-candle/${encodedKey}/minutes/5/${toDate}/${fromDate}`;
+  const candles = await upstoxRequest(path);
+  fiveMinHistoryCache.set(cacheKey, candles);
+  return candles;
+}
+
 function aggregateToFiveMinute(oneMinuteCandles) {
   const sorted = [...oneMinuteCandles].sort((a, b) => new Date(a[0]) - new Date(b[0]));
   const groups = new Map();
@@ -193,13 +206,19 @@ function getCachedDaily(instrumentKey) {
   return raw ? stripPartialTodayDaily(raw) : null;
 }
 
+function getCached5Min(instrumentKey) {
+  return fiveMinHistoryCache.get(`${getTodayIST()}::${instrumentKey}`) || null;
+}
+
 module.exports = {
   limiter,
   getDailyCandles,
   getIntradayCandles,
   getIntradayOneMinuteCandles,
+  getHistorical5MinCandles,
   prewarmDailyCache,
   getCachedDaily,
+  getCached5Min,
   dateShift,
   aggregateToFiveMinute,
   getLastIntervalsUsed

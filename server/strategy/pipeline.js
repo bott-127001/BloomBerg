@@ -4,11 +4,14 @@ const {
   limiter,
   getDailyCandles,
   getIntradayCandles,
+  getHistorical5MinCandles,
   prewarmDailyCache,
-  getCachedDaily
+  getCachedDaily,
+  getCached5Min,
+  dateShift
 } = require('./fetchData');
 const {
-  computeVolMA10,
+  computeVolMA10From915,
   computeATR5Pct,
   computeGapPct,
   computeNiftyMA20,
@@ -177,10 +180,13 @@ async function runScan({ manual = false } = {}) {
         }
 
         const prevClose = getPrevCloseFromDaily(daily);
-        const volMA10 = computeVolMA10(daily);
+        const fiveMin =
+          getCached5Min(item.instrumentKey) ||
+          (await getHistorical5MinCandles(item.instrumentKey, dateShift(14), dateShift(0)));
+        const volMA10 = computeVolMA10From915(fiveMin);
         const vol915 = Number(intraday[0][5]);
         if (volMA10 == null) {
-          console.warn(`INSUFFICIENT DAILY HISTORY: ${item.symbol} has <10 daily candles (Vol_MA10 unavailable)`);
+          console.warn(`INSUFFICIENT 9:15 HISTORY: ${item.symbol} has <10 historical 9:15 bars (Vol_MA10 unavailable)`);
         }
         const volRatio = volMA10 ? vol915 / volMA10 : 0;
         const atrPct = computeATR5Pct(daily);
@@ -359,6 +365,13 @@ async function runPrewarm() {
   if (isWeekendIST() || isHoliday(getTodayIST())) return;
   const instruments = ['NSE_INDEX|Nifty 50', 'NSE_INDEX|India VIX', ...nifty50.map((x) => x.instrumentKey)];
   await prewarmDailyCache(instruments);
+  for (const item of nifty50) {
+    try {
+      await getHistorical5MinCandles(item.instrumentKey, dateShift(14), dateShift(0));
+    } catch (error) {
+      console.error(`Prewarm 5m failed for ${item.symbol}:`, error.message);
+    }
+  }
 }
 
 async function markEOD() {

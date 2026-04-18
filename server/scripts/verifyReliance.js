@@ -4,11 +4,13 @@ const {
   getDailyCandles,
   getIntradayCandles,
   getIntradayOneMinuteCandles,
+  getHistorical5MinCandles,
+  dateShift,
   aggregateToFiveMinute,
   getLastIntervalsUsed
 } = require('../strategy/fetchData');
 const {
-  computeVolMA10,
+  computeVolMA10From915,
   computeATR5Pct,
   computeGapPct,
   computeNiftyMA20,
@@ -25,6 +27,7 @@ async function main() {
   if (!reliance) throw new Error('RELIANCE instrument not found');
 
   const daily = await getDailyCandles(reliance.instrumentKey);
+  const historical5m = await getHistorical5MinCandles(reliance.instrumentKey, dateShift(14), dateShift(0));
   const oneMinute = await getIntradayOneMinuteCandles(reliance.instrumentKey);
   const intraday = aggregateToFiveMinute(oneMinute);
   const niftyDaily = await getDailyCandles('NSE_INDEX|Nifty 50');
@@ -52,10 +55,22 @@ async function main() {
     return Number(hh) === 9 && Number(mm) === 20;
   });
 
+  const bars915History = historical5m.filter((candle) => {
+    const ts = new Date(candle[0]);
+    const hh = Number(ts.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', hour12: false }));
+    const mm = Number(ts.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', minute: '2-digit', hour12: false }));
+    return hh === 9 && mm === 15;
+  });
+  const last10_915 = bars915History.slice(-10);
+  const volMA10 = computeVolMA10From915(historical5m);
+
   if (!bar915 || !bar920 || !niftyIntraday.length) {
     console.log('');
     console.log('RELIANCE — STOP for your review');
     console.log('(Insufficient 9:15/9:20 intraday bars at this run time.)');
+    console.log('Vol_MA(10) from historical 9:15 bars:', volMA10);
+    console.log('9:15 volumes used for Vol_MA10 (last 10 sessions):');
+    console.log(last10_915.map((c) => ({ ts: c[0], volume: Number(c[5] || 0) })));
     console.log({
       message: 'Insufficient intraday candles for 9:15/9:20 validation at current run time.',
       relianceOneMinuteCount: oneMinute.length,
@@ -68,7 +83,6 @@ async function main() {
     return;
   }
 
-  const volMA10 = computeVolMA10(daily);
   const atrPct = computeATR5Pct(daily);
   const prevClose = getPrevCloseFromDaily(daily);
   const gapPct = computeGapPct(bar915[1], prevClose);
@@ -102,6 +116,8 @@ async function main() {
   console.log(`Vol ratio:  ${volRatio?.toFixed?.(4) ?? volRatio}`);
   console.log('---');
   console.log(`F1: ${f('f1Pass')}  F2: ${f('f2Pass')}  F3: ${f('f3Pass')}  F4: ${f('f4Pass')}  F5: ${f('f5Pass')}  (regime assumed LOW_VOL for probe)`);
+  console.log('9:15 volumes used for Vol_MA10 (last 10 sessions):');
+  console.log(last10_915.map((c) => ({ ts: c[0], volume: Number(c[5] || 0) })));
   console.log('--- detail (intervals, bars, raw):');
   console.log({
     intervalsUsed: getLastIntervalsUsed(),

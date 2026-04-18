@@ -1,0 +1,1205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nifty 50 Gap Strategy — Signal Generator Rulebook</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap');
+
+  :root {
+    --bg: #0f1117;
+    --surface: #171b25;
+    --surface2: #1e2333;
+    --border: #2a3147;
+    --border2: #3a4560;
+    --text: #e8eaf0;
+    --muted: #8892aa;
+    --accent: #4f9cf9;
+    --accent2: #38d9a9;
+    --warn: #fcc419;
+    --danger: #ff6b6b;
+    --green: #40c057;
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'IBM Plex Sans', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 14px;
+    line-height: 1.75;
+    padding: 0;
+  }
+
+  /* Layout */
+  .wrapper { display: flex; min-height: 100vh; }
+
+  /* Sidebar */
+  .sidebar {
+    width: 240px;
+    flex-shrink: 0;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    padding: 32px 0;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+  }
+
+  .sidebar-logo {
+    padding: 0 20px 24px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 20px;
+  }
+
+  .sidebar-logo .tag {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--accent);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+
+  .sidebar-logo .title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+    line-height: 1.3;
+  }
+
+  .nav-section {
+    padding: 0 12px;
+    margin-bottom: 4px;
+  }
+
+  .nav-label {
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--muted);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    padding: 8px 8px 4px;
+  }
+
+  .nav-link {
+    display: block;
+    padding: 5px 8px;
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 12.5px;
+    border-radius: 5px;
+    transition: all 0.15s;
+  }
+
+  .nav-link:hover, .nav-link.active {
+    color: var(--text);
+    background: var(--surface2);
+  }
+
+  .nav-link.active { color: var(--accent); }
+
+  /* Main content */
+  .main {
+    flex: 1;
+    max-width: 820px;
+    padding: 48px 52px;
+    overflow-x: hidden;
+  }
+
+  /* Typography */
+  h1 {
+    font-size: 28px;
+    font-weight: 600;
+    color: var(--text);
+    line-height: 1.2;
+    margin-bottom: 8px;
+  }
+
+  h2 {
+    font-size: 19px;
+    font-weight: 600;
+    color: var(--text);
+    margin-top: 52px;
+    margin-bottom: 16px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+    scroll-margin-top: 24px;
+  }
+
+  h3 {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--accent);
+    font-family: var(--mono);
+    margin-top: 28px;
+    margin-bottom: 10px;
+    letter-spacing: 0.03em;
+    scroll-margin-top: 24px;
+  }
+
+  h4 {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text);
+    margin-top: 20px;
+    margin-bottom: 8px;
+  }
+
+  p { margin-bottom: 14px; color: var(--text); }
+
+  strong { font-weight: 600; color: var(--text); }
+
+  em { color: var(--muted); font-style: italic; }
+
+  /* Header band */
+  .doc-header {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 24px 28px;
+    margin-bottom: 36px;
+  }
+
+  .doc-meta {
+    display: flex;
+    gap: 20px;
+    margin-top: 12px;
+    flex-wrap: wrap;
+  }
+
+  .doc-meta-item {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  .doc-meta-item span {
+    color: var(--accent2);
+    font-weight: 500;
+  }
+
+  /* Callout boxes */
+  .callout {
+    border-left: 3px solid;
+    border-radius: 0 7px 7px 0;
+    padding: 12px 16px;
+    margin: 16px 0;
+    font-size: 13px;
+    line-height: 1.6;
+  }
+
+  .callout-info { border-color: var(--accent); background: rgba(79,156,249,0.07); }
+  .callout-warn { border-color: var(--warn); background: rgba(252,196,25,0.07); }
+  .callout-danger { border-color: var(--danger); background: rgba(255,107,107,0.07); }
+  .callout-green { border-color: var(--green); background: rgba(64,192,87,0.07); }
+
+  .callout-title {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    font-weight: 500;
+    margin-bottom: 5px;
+  }
+
+  .callout-info .callout-title { color: var(--accent); }
+  .callout-warn .callout-title { color: var(--warn); }
+  .callout-danger .callout-title { color: var(--danger); }
+  .callout-green .callout-title { color: var(--green); }
+
+  /* Formula block */
+  .formula {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    padding: 14px 18px;
+    margin: 12px 0;
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--accent2);
+    line-height: 1.8;
+  }
+
+  .formula .comment {
+    color: var(--muted);
+    font-size: 11px;
+  }
+
+  /* Definition table */
+  .def-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 14px 0;
+    font-size: 13px;
+  }
+
+  .def-table th {
+    background: var(--surface2);
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 9px 14px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+    font-weight: 500;
+  }
+
+  .def-table td {
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+    color: var(--text);
+  }
+
+  .def-table tr:last-child td { border-bottom: none; }
+
+  .def-table td:first-child {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--accent);
+    white-space: nowrap;
+  }
+
+  /* Filter cards */
+  .filter-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px 20px;
+    margin: 16px 0;
+  }
+
+  .filter-card-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+
+  .filter-num {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: #0f1117;
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .filter-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .filter-badge {
+    margin-left: auto;
+    font-family: var(--mono);
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: rgba(79,156,249,0.12);
+    color: var(--accent);
+    border: 1px solid rgba(79,156,249,0.25);
+  }
+
+  /* Step list */
+  .step-list { list-style: none; padding: 0; margin: 10px 0; }
+
+  .step-list li {
+    display: flex;
+    gap: 12px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+    align-items: flex-start;
+  }
+
+  .step-list li:last-child { border-bottom: none; }
+
+  .step-marker {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+    min-width: 32px;
+    padding-top: 2px;
+  }
+
+  /* Regime table */
+  .regime-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 10px;
+    margin: 16px 0;
+  }
+
+  .regime-cell {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    padding: 14px;
+  }
+
+  .regime-cell-header {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 500;
+    margin-bottom: 8px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .regime-low .regime-cell-header { color: var(--accent); }
+  .regime-mid .regime-cell-header { color: var(--warn); }
+  .regime-high .regime-cell-header { color: var(--danger); }
+
+  .regime-val {
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+
+  .regime-val strong { color: var(--text); font-size: 13px; }
+
+  /* Flowchart */
+  .flowchart-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 24px;
+    margin: 20px 0;
+    overflow-x: auto;
+  }
+
+  /* Divider */
+  .divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 40px 0;
+  }
+
+  /* Inline code */
+  code {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--accent2);
+    background: rgba(56,217,169,0.08);
+    padding: 1px 6px;
+    border-radius: 3px;
+  }
+
+  /* Pill badge */
+  .pill {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-weight: 500;
+  }
+
+  .pill-green { background: rgba(64,192,87,0.12); color: var(--green); border: 1px solid rgba(64,192,87,0.25); }
+  .pill-red { background: rgba(255,107,107,0.12); color: var(--danger); border: 1px solid rgba(255,107,107,0.25); }
+  .pill-blue { background: rgba(79,156,249,0.12); color: var(--accent); border: 1px solid rgba(79,156,249,0.25); }
+  .pill-yellow { background: rgba(252,196,25,0.12); color: var(--warn); border: 1px solid rgba(252,196,25,0.25); }
+
+  /* Section number badge in h2 */
+  .section-num {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    margin-right: 8px;
+  }
+
+  /* Skip rule highlight */
+  .skip-rule {
+    background: rgba(255,107,107,0.06);
+    border: 1px solid rgba(255,107,107,0.2);
+    border-radius: 6px;
+    padding: 10px 14px;
+    font-size: 13px;
+    margin: 10px 0;
+    color: var(--danger);
+    font-family: var(--mono);
+  }
+
+  @media print {
+    .sidebar { display: none; }
+    .main { padding: 24px 32px; max-width: 100%; }
+    body { background: white; color: black; }
+  }
+</style>
+</head>
+<body>
+<div class="wrapper">
+
+  <!-- Sidebar -->
+  <nav class="sidebar">
+    <div class="sidebar-logo">
+      <div class="tag">Strategy Rulebook</div>
+      <div class="title">Nifty 50 Gap<br>Signal Generator</div>
+    </div>
+    <div class="nav-section">
+      <div class="nav-label">Overview</div>
+      <a href="#overview" class="nav-link">What this doc covers</a>
+      <a href="#data-inputs" class="nav-link">Data inputs (Upstox)</a>
+      <a href="#glossary" class="nav-link">Glossary of metrics</a>
+    </div>
+    <div class="nav-section">
+      <div class="nav-label">Module 1</div>
+      <a href="#regime" class="nav-link">Volatility regime</a>
+      <a href="#regime-vix" class="nav-link">→ VIX thresholds</a>
+      <a href="#regime-atr" class="nav-link">→ ATR scan (15–20)</a>
+    </div>
+    <div class="nav-section">
+      <div class="nav-label">Module 2</div>
+      <a href="#filters" class="nav-link">5 signal filters</a>
+      <a href="#f1" class="nav-link">→ F1: Volume surge</a>
+      <a href="#f2" class="nav-link">→ F2: ATR regime</a>
+      <a href="#f3" class="nav-link">→ F3: Gap size</a>
+      <a href="#f4" class="nav-link">→ F4: Triple alignment</a>
+      <a href="#f5" class="nav-link">→ F5: 9:20 confirmation</a>
+    </div>
+    <div class="nav-section">
+      <div class="nav-label">Module 3</div>
+      <a href="#selector" class="nav-link">1-trade selection</a>
+      <a href="#entry" class="nav-link">Entry, TP & SL</a>
+    </div>
+    <div class="nav-section">
+      <div class="nav-label">Reference</div>
+      <a href="#flowchart" class="nav-link">Trade flowchart</a>
+      <a href="#quick-ref" class="nav-link">Quick reference</a>
+    </div>
+  </nav>
+
+  <!-- Main -->
+  <main class="main">
+
+    <!-- Header -->
+    <div class="doc-header">
+      <h1>Nifty 50 Gap Strategy</h1>
+      <p style="color:var(--muted);margin-bottom:0;font-size:13px;">Signal Generator — Implementation Rulebook for AI-assisted vibe coding</p>
+      <div class="doc-meta">
+        <div class="doc-meta-item">Backtest period <span>Jan 2024 – Feb 2026</span></div>
+        <div class="doc-meta-item">Trades analysed <span>287</span></div>
+        <div class="doc-meta-item">Overall WR <span>57.8%</span></div>
+        <div class="doc-meta-item">Data source <span>Upstox Analytics API</span></div>
+        <div class="doc-meta-item">Exchange <span>NSE / Nifty 50 universe</span></div>
+      </div>
+    </div>
+
+    <!-- ─────────── OVERVIEW ─────────── -->
+    <h2 id="overview"><span class="section-num">00</span>What this document covers</h2>
+    <p>This rulebook defines the complete signal generation pipeline — from raw OHLCV data to a single actionable trade per day. It is structured as three sequential modules that must be evaluated in order every morning before market open.</p>
+
+    <table class="def-table">
+      <thead><tr><th>Module</th><th>Purpose</th><th>Decision output</th></tr></thead>
+      <tbody>
+        <tr><td>Module 1</td><td>Volatility regime detection</td><td>Which threshold set to use today</td></tr>
+        <tr><td>Module 2</td><td>5-filter signal scan</td><td>List of qualifying stocks for today</td></tr>
+        <tr><td>Module 3</td><td>1-trade selection + execution</td><td>One stock, direction, TP, SL</td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout callout-info">
+      <div class="callout-title">Hard rule</div>
+      A module's output is the required input for the next module. No filter in Module 2 can be evaluated before Module 1 sets the regime. No trade can be entered before all 5 filters in Module 2 pass.
+    </div>
+
+    <!-- ─────────── DATA INPUTS ─────────── -->
+    <h2 id="data-inputs"><span class="section-num">01</span>Data inputs — Upstox API</h2>
+    <p>All calculations below are derived from OHLCV candle data fetched via the Upstox Analytics Token. The following data streams are required:</p>
+
+    <table class="def-table">
+      <thead><tr><th>Data needed</th><th>Candle type</th><th>Lookback required</th><th>Instruments</th></tr></thead>
+      <tbody>
+        <tr><td>Daily OHLCV</td><td>1D candles</td><td>Minimum 10 trading days</td><td>All Nifty 50 stocks + Nifty 50 index</td></tr>
+        <tr><td>9:15 candle</td><td>1-minute or 5-minute candle</td><td>Just today's open candle (9:15–9:20)</td><td>All Nifty 50 stocks + Nifty 50 index</td></tr>
+        <tr><td>9:20 candle</td><td>5-minute candle</td><td>Today's second candle (9:20–9:25)</td><td>Stocks that passed all 5 filters</td></tr>
+        <tr><td>India VIX</td><td>Daily close</td><td>Today's value before market open</td><td>NSE:INDIAVIX (or from NSE website)</td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout callout-warn">
+      <div class="callout-title">Timing dependency</div>
+      The 9:15 candle is the first 5-minute candle of the day (9:15:00 to 9:19:59). The 9:20 candle is the second (9:20:00 to 9:24:59). Entry happens at the close of the 9:20 candle, i.e. at 9:25 AM. Do not use intraday ticks — always use completed candles.
+    </div>
+
+    <!-- ─────────── GLOSSARY ─────────── -->
+    <h2 id="glossary"><span class="section-num">02</span>Glossary of metrics</h2>
+    <p>Every metric used in this strategy is defined here. All are computed from daily OHLCV or intraday candle data only — no external data feed required except India VIX.</p>
+
+    <h3>Vol(9:15) — Volume at the 9:15 candle</h3>
+    <p>The total traded volume recorded in the first 5-minute candle of the day (9:15–9:19:59).</p>
+    <div class="formula">
+      Vol(9:15) = Volume field of the 9:15 candle for the stock
+    </div>
+
+    <h3>Vol_MA(10) — 10-day volume moving average</h3>
+    <p>The average of the total daily volume for the stock over the past 10 trading sessions. This is the baseline "normal" daily volume.</p>
+    <div class="formula">
+      Vol_MA(10) = ( Sum of daily volume for each of the last 10 trading days ) ÷ 10
+      <div class="comment">// Uses full-day volume from daily candles, not intraday candles</div>
+    </div>
+
+    <h3>Vol_Ratio — Volume surge ratio</h3>
+    <p>How many times larger today's 9:15 volume is compared to the stock's average daily volume. A ratio above 1.5 means unusually heavy participation at open.</p>
+    <div class="formula">
+      Vol_Ratio = Vol(9:15) ÷ Vol_MA(10)
+    </div>
+
+    <h3>ATR(5) — Average True Range over 5 days</h3>
+    <p>The average of the True Range over the last 5 trading sessions. It measures how much the stock typically moves each day in percentage terms. Used to gauge the stock's recent volatility regime.</p>
+    <div class="formula">
+      True Range (each day) = Maximum of:
+        ( High − Low ),
+        ( |High − Previous Close| ),
+        ( |Low  − Previous Close| )
+
+      ATR(5) = ( Sum of True Range for each of last 5 days ) ÷ 5
+
+      ATR(5)% = ( ATR(5) ÷ Previous Close ) × 100
+      <div class="comment">// Always express ATR as a percentage of price, not in absolute rupee terms</div>
+    </div>
+
+    <h3>Gap% — Opening gap percentage</h3>
+    <p>How much the stock opened above or below its previous day's close, as a percentage. A positive gap means the stock opened higher (bullish gap). A negative gap means it opened lower (bearish gap).</p>
+    <div class="formula">
+      Gap% = ( Today's Open − Previous Close ) ÷ Previous Close × 100
+
+      <div class="comment">// Positive = gap up (long candidate). Negative = gap down (short candidate).</div>
+    </div>
+
+    <h3>Gap/ATR Ratio — Conviction score</h3>
+    <p>How large the gap is relative to the stock's own normal daily range. This is the selector metric used to pick the best trade on days with multiple qualifying stocks.</p>
+    <div class="formula">
+      Gap_ATR_Ratio = |Gap%| ÷ ATR(5)%
+      <div class="comment">// Use absolute value of Gap% — direction is handled separately</div>
+      <div class="comment">// Higher ratio = gap is more abnormal relative to the stock's own behavior</div>
+    </div>
+
+    <h3>Nifty_MA(20) — Nifty 50 index 20-day moving average</h3>
+    <p>The simple moving average of the Nifty 50 index daily close over the past 20 trading sessions. Used to determine the broad market direction.</p>
+    <div class="formula">
+      Nifty_MA(20) = ( Sum of Nifty 50 daily close for each of last 20 sessions ) ÷ 20
+    </div>
+
+    <h3>Nifty direction</h3>
+    <p>Whether the Nifty 50 index is bullish or bearish at the open of the current day.</p>
+    <div class="formula">
+      If Nifty 9:15 Open > Nifty_MA(20)  →  Nifty direction = BULLISH
+      If Nifty 9:15 Open < Nifty_MA(20)  →  Nifty direction = BEARISH
+      If equal                            →  No trade today (skip)
+    </div>
+
+    <h3>9:15 candle direction</h3>
+    <p>Whether the first 5-minute candle of the day closed higher or lower than it opened. This determines whether the initial impulse was bullish or bearish.</p>
+    <div class="formula">
+      If 9:15 Close > 9:15 Open  →  Candle direction = BULLISH
+      If 9:15 Close < 9:15 Open  →  Candle direction = BEARISH
+      If equal (doji)            →  Skip this stock
+    </div>
+
+    <h3>9:20 candle confirmation</h3>
+    <p>Whether the second 5-minute candle (9:20–9:24:59) continues in the same direction as the gap. This is the final fakeout filter before entry.</p>
+    <div class="formula">
+      For a LONG setup (gap up):
+        If 9:20 Close > 9:20 Open  →  Confirmed. Enter long at 9:20 candle close.
+        If 9:20 Close < 9:20 Open  →  Not confirmed. Skip this stock.
+
+      For a SHORT setup (gap down):
+        If 9:20 Close < 9:20 Open  →  Confirmed. Enter short at 9:20 candle close.
+        If 9:20 Close > 9:20 Open  →  Not confirmed. Skip this stock.
+    </div>
+
+    <hr class="divider">
+
+    <!-- ─────────── MODULE 1: REGIME ─────────── -->
+    <h2 id="regime"><span class="section-num">03</span>Module 1 — Volatility regime detection</h2>
+    <p>Before any scan runs, determine which threshold set to use. This is a once-per-day decision made before market open using India VIX. There are two threshold sets — <strong>High Vol (2024 thresholds)</strong> and <strong>Low Vol (2025 thresholds)</strong>. The regime decision dictates the ATR entry filter and the profit target used in Module 3.</p>
+
+    <h3 id="regime-vix">Step 1 — Read India VIX</h3>
+    <p>Check India VIX before 9:15 AM. It is available on the NSE website (nseindia.com), any broker terminal, or TradingView (symbol: <code>NSE:INDIAVIX</code>). Use the previous day's closing value if live pre-market value is unavailable.</p>
+
+    <div class="regime-grid">
+      <div class="regime-cell regime-low">
+        <div class="regime-cell-header">VIX below 15 — Low vol</div>
+        <div class="regime-val">Regime: <strong>Low volatility</strong></div>
+        <div class="regime-val">Use: <strong>2025 thresholds</strong></div>
+        <div class="regime-val" style="margin-top:8px;font-size:11px;color:var(--muted);">Market is calm. Gaps are smaller and targets must be conservative.</div>
+      </div>
+      <div class="regime-cell regime-mid">
+        <div class="regime-cell-header">VIX 15 to 20 — Transition</div>
+        <div class="regime-val">Regime: <strong>Ambiguous</strong></div>
+        <div class="regime-val">Use: <strong>ATR scan average</strong></div>
+        <div class="regime-val" style="margin-top:8px;font-size:11px;color:var(--muted);">VIX is not decisive. Resolve by computing the avg ATR(5) from your scan stocks. See step below.</div>
+      </div>
+      <div class="regime-cell regime-high">
+        <div class="regime-cell-header">VIX above 20 — High vol</div>
+        <div class="regime-val">Regime: <strong>High volatility</strong></div>
+        <div class="regime-val">Use: <strong>2024 thresholds</strong></div>
+        <div class="regime-val" style="margin-top:8px;font-size:11px;color:var(--muted);">Market is active. Gaps have strong follow-through. Use wider TP.</div>
+      </div>
+    </div>
+
+    <h3 id="regime-atr">Step 2 — ATR tiebreaker (only when VIX is 15 to 20)</h3>
+    <p>When India VIX is in the 15–20 range, VIX alone is not reliable enough to classify the regime. In this case, compute the average ATR(5) across all Nifty 50 stocks that have already passed Filter 2 (ATR ≥ the minimum threshold) in your scan. This gives you the actual volatility reading of the stocks you are considering trading today.</p>
+
+    <div class="callout callout-info">
+      <div class="callout-title">How to compute avg ATR for the tiebreaker</div>
+      After running your pre-open scan on the Nifty 50 universe and computing ATR(5)% for every stock, collect the ATR(5)% values of all stocks that have passed at least Filter 2. Average them. This number — the average ATR of your shortlist — is your tiebreaker signal.
+    </div>
+
+    <div class="formula">
+      Avg_ATR_Scan = Sum of ATR(5)% for each stock in the shortlist ÷ Count of stocks in shortlist
+
+      If Avg_ATR_Scan ≥ 2.5%  →  High vol regime  →  Use 2024 thresholds
+      If Avg_ATR_Scan  &lt; 2.5%  →  Low vol regime   →  Use 2025 thresholds
+    </div>
+
+    <div class="callout callout-warn">
+      <div class="callout-title">Why 2.5% and not 2.6%</div>
+      The sensitivity analysis showed that 2.5% captures 100% of 2024 (high vol) trading days while still classifying 71% of 2025 (low vol) days correctly. It avoids ever misclassifying a high-vol day as low-vol, which is the more expensive error (you would use conservative 2025 targets in a volatile market and leave money on the table).
+    </div>
+
+    <h3>Regime threshold reference</h3>
+    <table class="def-table">
+      <thead><tr><th>Parameter</th><th>High vol (2024 set)</th><th>Low vol (2025 set)</th></tr></thead>
+      <tbody>
+        <tr><td>ATR(5) entry filter</td><td>≥ 2.5%</td><td>≥ 1.75%</td></tr>
+        <tr><td>Profit target (TP)</td><td>+1.25%</td><td>+1.0%</td></tr>
+        <tr><td>Stop loss (SL)</td><td>−0.75%</td><td>−0.75%</td></tr>
+        <tr><td>Volume filter</td><td>≥ 1.5× Vol_MA(10)</td><td>≥ 1.5× Vol_MA(10)</td></tr>
+        <tr><td>Gap filter</td><td>≥ 0.5%</td><td>≥ 0.5%</td></tr>
+      </tbody>
+    </table>
+
+    <hr class="divider">
+
+    <!-- ─────────── MODULE 2: 5 FILTERS ─────────── -->
+    <h2 id="filters"><span class="section-num">04</span>Module 2 — 5-filter signal scan</h2>
+    <p>Run this scan on every Nifty 50 constituent stock after 9:15 AM candle closes. All 5 filters must pass for a stock to qualify. A single failure removes the stock. The filters are evaluated in order — stop evaluating a stock the moment any filter fails.</p>
+
+    <div class="callout callout-green">
+      <div class="callout-title">Important</div>
+      Filters 1, 2, and 3 can be computed before market open using pre-market data where available, or from the 9:15 candle once it closes. Filter 4 requires the 9:15 candle close. Filter 5 requires the 9:20 candle close. Entry happens after Filter 5 passes.
+    </div>
+
+    <!-- F1 -->
+    <div class="filter-card" id="f1">
+      <div class="filter-card-header">
+        <div class="filter-num">1</div>
+        <div class="filter-name">Volume surge — unusual participation at open</div>
+        <div class="filter-badge">pre-open</div>
+      </div>
+
+      <h4>Definition</h4>
+      <p style="font-size:13px;">Confirms that the trading activity at open is genuinely elevated — not routine morning noise. A ratio of 1.5× means today's open volume is 50% heavier than the stock's 10-day average daily volume, which signals institutional or informed participation.</p>
+
+      <h4>Calculation</h4>
+      <div class="formula">
+        Vol_MA(10) = Average of daily total volume across last 10 sessions
+
+        Vol_Ratio  = Vol(9:15 candle) ÷ Vol_MA(10)
+      </div>
+
+      <h4>Pass condition</h4>
+      <div class="formula">
+        PASS if  Vol_Ratio ≥ 1.5
+        FAIL if  Vol_Ratio &lt; 1.5  →  Remove stock, move to next
+      </div>
+
+      <div class="callout callout-info" style="margin-top:10px;">
+        <div class="callout-title">Data note</div>
+        Vol_MA(10) uses the full-day volume from daily candles. Vol(9:15) is the volume field from the first 5-minute candle. These are different time scales — do not mix them with intraday bars.
+      </div>
+    </div>
+
+    <!-- F2 -->
+    <div class="filter-card" id="f2">
+      <div class="filter-card-header">
+        <div class="filter-num">2</div>
+        <div class="filter-name">ATR regime — stock is in a volatile state</div>
+        <div class="filter-badge">pre-open</div>
+      </div>
+
+      <h4>Definition</h4>
+      <p style="font-size:13px;">Ensures the stock has been making meaningful daily moves over the last 5 sessions. A low-ATR stock in a quiet period will not have the range needed for the gap to follow through to the target. The ATR threshold changes depending on the regime set in Module 1.</p>
+
+      <h4>Calculation</h4>
+      <div class="formula">
+        For each of the last 5 trading days:
+          TR_day = max( High−Low,  |High−Prev_Close|,  |Low−Prev_Close| )
+
+        ATR(5)_points = ( TR_1 + TR_2 + TR_3 + TR_4 + TR_5 ) ÷ 5
+
+        ATR(5)% = ( ATR(5)_points ÷ Previous Close ) × 100
+      </div>
+
+      <h4>Pass condition</h4>
+      <div class="formula">
+        High vol regime  →  PASS if ATR(5)% ≥ 2.5%
+        Low vol regime   →  PASS if ATR(5)% ≥ 1.75%
+
+        FAIL = ATR(5)% below the applicable threshold  →  Remove stock
+      </div>
+    </div>
+
+    <!-- F3 -->
+    <div class="filter-card" id="f3">
+      <div class="filter-card-header">
+        <div class="filter-num">3</div>
+        <div class="filter-name">Gap size — real directional commitment at open</div>
+        <div class="filter-badge">pre-open</div>
+      </div>
+
+      <h4>Definition</h4>
+      <p style="font-size:13px;">Filters out stocks that opened flat or nearly flat. A meaningful gap indicates that buyers or sellers have already committed to a direction overnight. Stocks that gap by less than 0.5% from the previous close are not making a directional statement — they are just opening in noise.</p>
+
+      <h4>Calculation</h4>
+      <div class="formula">
+        Gap% = ( Today's Open − Previous Close ) ÷ Previous Close × 100
+
+        <div class="comment">// Positive value = gap up. Negative value = gap down.</div>
+        <div class="comment">// Previous Close = the last 4pm close of the stock, not the Nifty index.</div>
+      </div>
+
+      <h4>Pass condition</h4>
+      <div class="formula">
+        PASS if  |Gap%| ≥ 0.5%   (absolute value — applies to both gap up and gap down)
+        FAIL if  |Gap%| &lt; 0.5%  →  Remove stock
+
+        Gap direction:
+          Gap% > 0  →  Long candidate
+          Gap% &lt; 0  →  Short candidate
+      </div>
+    </div>
+
+    <!-- F4 -->
+    <div class="filter-card" id="f4">
+      <div class="filter-card-header">
+        <div class="filter-num">4</div>
+        <div class="filter-name">Triple alignment — all three directions must agree</div>
+        <div class="filter-badge">after 9:15 candle</div>
+      </div>
+
+      <h4>Definition</h4>
+      <p style="font-size:13px;">The single biggest win-rate driver in the strategy. Requires that three independent signals — the stock's gap direction, the 9:15 candle direction, and the broad Nifty market direction — all point the same way. Any conflict between them kills the trade.</p>
+
+      <h4>The three signals</h4>
+      <table class="def-table">
+        <thead><tr><th>Signal</th><th>Bullish condition</th><th>Bearish condition</th></tr></thead>
+        <tbody>
+          <tr><td>Gap direction</td><td>Gap% > 0 (opened above prev close)</td><td>Gap% &lt; 0 (opened below prev close)</td></tr>
+          <tr><td>9:15 candle direction</td><td>9:15 Close > 9:15 Open</td><td>9:15 Close &lt; 9:15 Open</td></tr>
+          <tr><td>Nifty vs MA(20)</td><td>Nifty 9:15 Open > Nifty_MA(20)</td><td>Nifty 9:15 Open &lt; Nifty_MA(20)</td></tr>
+        </tbody>
+      </table>
+
+      <h4>Pass condition</h4>
+      <div class="formula">
+        Long signal PASS:
+          Gap direction = BULLISH
+          AND  9:15 candle direction = BULLISH
+          AND  Nifty vs MA(20) = BULLISH
+
+        Short signal PASS:
+          Gap direction = BEARISH
+          AND  9:15 candle direction = BEARISH
+          AND  Nifty vs MA(20) = BEARISH
+      </div>
+
+      <div class="skip-rule">FAIL if any one of the three signals conflicts with the other two → Skip this stock entirely. Do not enter even if the other two agree.</div>
+
+      <div class="callout callout-warn" style="margin-top:10px;">
+        <div class="callout-title">Doji candles</div>
+        If the 9:15 candle is a doji (Close = Open exactly), it has no direction. Treat it as a conflict — skip the stock.
+      </div>
+    </div>
+
+    <!-- F5 -->
+    <div class="filter-card" id="f5">
+      <div class="filter-card-header">
+        <div class="filter-num">5</div>
+        <div class="filter-name">9:20 candle confirmation — direction holds for one full candle</div>
+        <div class="filter-badge">after 9:20 candle</div>
+      </div>
+
+      <h4>Definition</h4>
+      <p style="font-size:13px;">The final filter before entry. Many gaps reverse sharply in the first 5 minutes as trapped traders exit. This filter waits for the second 5-minute candle to close. If the direction still holds, the move has momentum and is less likely to be a fakeout. If the second candle reverses, skip the stock for today — do not chase.</p>
+
+      <h4>Calculation</h4>
+      <div class="formula">
+        Wait for the 9:20–9:24:59 candle to fully close (at exactly 9:25:00 AM).
+
+        9:20 candle direction:
+          If Close > Open  →  BULLISH
+          If Close &lt; Open  →  BEARISH
+      </div>
+
+      <h4>Pass condition</h4>
+      <div class="formula">
+        Long setup  →  PASS if 9:20 candle is BULLISH (Close > Open)
+        Short setup →  PASS if 9:20 candle is BEARISH (Close &lt; Open)
+
+        FAIL = 9:20 candle opposes gap direction  →  Skip stock entirely
+      </div>
+
+      <div class="callout callout-green" style="margin-top:10px;">
+        <div class="callout-title">Entry timing</div>
+        Entry is placed at the close of the 9:20 candle — i.e., at 9:25:00 AM. This is a market order at open of the 9:25 candle, or a limit order at the 9:20 close price. Never enter during the 9:20 candle while it is still forming.
+      </div>
+    </div>
+
+    <hr class="divider">
+
+    <!-- ─────────── MODULE 3: 1-TRADE SELECTION ─────────── -->
+    <h2 id="selector"><span class="section-num">05</span>Module 3 — 1-trade-per-day selection</h2>
+    <p>After Module 2 produces a list of qualifying stocks, exactly one trade is taken per day. The selector picks the highest-conviction candidate using the <strong>Gap/ATR Ratio</strong>.</p>
+
+    <h3>Why Gap/ATR Ratio</h3>
+    <p>Among all tested selectors (vol ratio highest, ATR highest, gap% largest, and their inverses), Gap/ATR Ratio descending produced the best risk-adjusted result: 54.1% win rate, +73.2% total PnL, and the lowest max drawdown of −3.64% across 181 trades.</p>
+    <p>The logic: a 1% gap on a stock with ATR of 2% is 50% of its entire normal daily range — an extraordinary move. The same 1% gap on a stock with ATR of 5% is only 20% of its range — routine. The ratio normalises for each stock's own volatility, selecting the gap that is most abnormal relative to that stock's own history.</p>
+
+    <h3>Selection rule</h3>
+    <div class="formula">
+      For each qualifying stock from Module 2:
+        Gap_ATR_Ratio = |Gap%| ÷ ATR(5)%
+
+      Sort qualifying stocks by Gap_ATR_Ratio — highest first.
+
+      Take the stock at rank 1 (highest ratio) as today's trade.
+      All other qualifying stocks are skipped for today.
+    </div>
+
+    <div class="callout callout-info">
+      <div class="callout-title">When no stocks qualify</div>
+      If Module 2 produces zero qualifying stocks after all 5 filters, there is no trade today. Do not force a trade. The system is designed to sit in cash on low-signal days.
+    </div>
+
+    <h2 id="entry"><span class="section-num">06</span>Entry, profit target and stop loss</h2>
+
+    <h3>Entry price</h3>
+    <div class="formula">
+      Entry_Price = Close price of the 9:20 candle (9:24:59 close)
+
+      <div class="comment">// Place order at market open of 9:25 candle, or as a limit at the 9:20 close</div>
+    </div>
+
+    <h3>Profit target (TP)</h3>
+    <div class="formula">
+      Long trade:
+        TP = Entry_Price × ( 1 + TP_pct ÷ 100 )
+
+      Short trade:
+        TP = Entry_Price × ( 1 − TP_pct ÷ 100 )
+
+      Where TP_pct:
+        High vol regime  →  1.25%
+        Low vol regime   →  1.0%
+    </div>
+
+    <h3>Stop loss (SL)</h3>
+    <div class="formula">
+      Long trade:
+        SL = Entry_Price × ( 1 − 0.75 ÷ 100 )  =  Entry_Price × 0.9925
+
+      Short trade:
+        SL = Entry_Price × ( 1 + 0.75 ÷ 100 )  =  Entry_Price × 1.0075
+
+      SL is fixed at 0.75% in both regimes.
+    </div>
+
+    <h3>Exit rules</h3>
+    <ul class="step-list">
+      <li><div class="step-marker">Exit 1</div><div><strong>Target hit</strong> — Close position immediately when price touches TP. Do not hold for more.</div></li>
+      <li><div class="step-marker">Exit 2</div><div><strong>Stop hit</strong> — Close position immediately when price touches SL. Do not average down or widen stop.</div></li>
+      <li><div class="step-marker">Exit 3</div><div><strong>End of day</strong> — If neither TP nor SL is hit by 3:20 PM, close the position at market price before EOD. Never carry intraday positions overnight.</div></li>
+    </ul>
+
+    <table class="def-table" style="margin-top:16px;">
+      <thead><tr><th>Regime</th><th>TP</th><th>SL</th><th>R:R ratio</th></tr></thead>
+      <tbody>
+        <tr><td>High vol (VIX &gt; 20 or ATR ≥ 2.5%)</td><td>+1.25%</td><td>−0.75%</td><td>1.67</td></tr>
+        <tr><td>Low vol (VIX &lt; 15 or ATR &lt; 2.5%)</td><td>+1.0%</td><td>−0.75%</td><td>1.33</td></tr>
+      </tbody>
+    </table>
+
+    <hr class="divider">
+
+    <!-- ─────────── FLOWCHART ─────────── -->
+    <h2 id="flowchart"><span class="section-num">07</span>Trade decision flowchart</h2>
+    <p>The complete daily workflow from market open to trade entry. Follow this sequence for every trading day.</p>
+
+    <div class="flowchart-wrap">
+      <svg viewBox="0 0 680 1380" width="100%" xmlns="http://www.w3.org/2000/svg" role="img">
+        <title>Nifty 50 Gap Strategy — daily trade decision flowchart</title>
+        <desc>Flowchart showing the sequential steps from reading India VIX to entering a trade</desc>
+        <defs>
+          <marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M2 1L8 5L2 9" fill="none" stroke="#4f9cf9" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </marker>
+          <marker id="arr-red" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M2 1L8 5L2 9" fill="none" stroke="#ff6b6b" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </marker>
+          <marker id="arr-green" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M2 1L8 5L2 9" fill="none" stroke="#40c057" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </marker>
+        </defs>
+
+        <!-- START -->
+        <rect x="230" y="20" width="220" height="44" rx="22" fill="#1e2333" stroke="#4f9cf9" stroke-width="1.5"/>
+        <text x="340" y="48" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="12" fill="#4f9cf9" font-weight="500">START — before 9:15 AM</text>
+
+        <!-- Arrow -->
+        <line x1="340" y1="64" x2="340" y2="94" stroke="#4f9cf9" stroke-width="1" marker-end="url(#arr)"/>
+
+        <!-- Step 1: Read VIX -->
+        <rect x="170" y="96" width="340" height="52" rx="7" fill="#1e2333" stroke="#2a3147" stroke-width="1"/>
+        <text x="340" y="117" text-anchor="middle" font-family="'IBM Plex Sans',sans-serif" font-size="12" font-weight="600" fill="#e8eaf0">Step 1 — Read India VIX</text>
+        <text x="340" y="136" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="11" fill="#8892aa">NSE website or broker terminal</text>
+
+        <line x1="340" y1="148" x2="340" y2="178" stroke="#4f9cf9" stroke-width="1" marker-end="url(#arr)"/>
+
+        <!-- VIX Decision diamond -->
+        <polygon points="340,180 460,218 340,256 220,218" fill="#1e2333" stroke="#fcc419" stroke-width="1.5"/>
+        <text x="340" y="214" text-anchor="middle" font-family="'IBM Plex Sans',sans-serif" font-size="12" font-weight="600" fill="#fcc419">VIX level?</text>
+        <text x="340" y="230" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="#8892aa">check value</text>
+
+        <!-- VIX < 15 left -->
+        <line x1="220" y1="218" x2="90" y2="218" stroke="#4f9cf9" stroke-width="1" marker-end="url(#arr)"/>
+        <text x="152" y="210" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="#8892aa">below 15</text>
+        <rect x="20" y="198" width="70" height="40" rx="6" fill="#1e2333" stroke="#38d9a9" stroke-width="1"/>
+        <text x="55" y="215" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="#38d9a9">LOW VOL</text>
+        <text x="55" y="230" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="#38d9a9">2025 set</text>
+
+        <!-- VIX > 20 right -->
+        <line x1="460" y1="218" x2="590" y2="218" stroke="#4f9cf9" stroke-width="1" marker-end="url(#arr)"/>
+        <text x="526" y="210" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="#8892aa">above 20</text>
+        <rect x="590" y="198" width="70" height="40" rx="6" fill="#1e2333" stroke="#ff6b6b" stroke-width="1"/>
+        <text x="625" y="215" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="#ff6b6b">HIGH VOL</text>
+        <text x="625" y="230" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="#ff6b6b">2024 set</text>
+
+        <!-- VIX 15-20 down -->
+        <line x1="340" y1="256" x2="340" y2="286" stroke="#4f9cf9" stroke-width="1" marker-end="url(#arr)"/>
+        <text x="353" y="274" font-family="'IBM Plex Mono',monospace" font-size="10" fill="#fcc419">15–20</text>
+
+        <!-- ATR tiebreaker box -->
+        <rect x="170" y="288" width="340" height="60" rx="7" fill="#1e2333" stroke="#fcc419" stroke-width="1"/>
+        <text x="340" y="308" text-anchor="middle" font-family="'IBM Plex Sans',sans-serif" font-size="12" font-weight="600" fill="#e8eaf0">Compute avg ATR(5) of scan stocks</text>
+        <text x="340" y="325" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="11" fill="#8892aa">Avg_ATR ≥ 2.5% → HIGH VOL</text>
+        <text x="340" y="340" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="11" fill="#8892aa">Avg_ATR &lt; 2.5% → LOW VOL</text>
+
+        <!-- Converge arrows from left/right boxes back to center -->
+        <line x1="55" y1="238" x2="55" y2="380" stroke="#38d9a9" stroke-width="1"/>
+        <line x1="55" y1="380" x2="330" y2="380" stroke="#38d9a9" stroke-width="1" marker-end="url(#arr-green)"/>
+        <line x1="625" y1="238" x2="625" y2="380" stroke="#ff6b6b" stroke-width="1"/>
+        <line x1="625" y1="380" x2="350" y2="380" stroke="#ff6b6b" stroke-width="1" marker-end="url(#arr-red)"/>
+        <line x1="340" y1="348" x2="340" y2="370" stroke="#4f9cf9" stroke-width="1" marker-end="url(#arr)"/>
+
+        <!-- REGIME SET -->
+        <rect x="200" y="372" width="280" height="36" rx="7" fill="#171b25" stroke="#2a3147" stroke-width="1"/>
+        <text x="340" y="396" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="11" fill="#38d9a9" font-weight="500">REGIME SET — thresholds locked</text>
+
+        <line x1="340" y1="408" x2="340" y2="438" stroke="#4f9cf9" stroke-width="1" marker-end="url(#arr)"/>
+
+        <!-- SCAN BOX -->
+        <rect x="150" y="440" width="380" height="60" rx="7" fill="#1e2333" stroke="#2a3147" stroke-width="1"/>
+        <text x="340" y="462" text-anchor="middle" font-family="'IBM Plex Sans',sans-serif" font-size="12" font-weight="600" fill="#e8eaf0">Run scan on all Nifty 50 stocks</text>
+        <text x="340" y="480" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="11" fill="#8892aa">Compute: Vol_Ratio, ATR(5)%, Gap%, Nifty_MA(20)</text>
+
+        <!-- FILTER CHAIN -->
+        <line x1="340" y1="500" x2="340" y2="524" stroke="#4f9cf9" stroke-width="1" marker-end="url(#arr)"/>
+
+        <!-- F1 box -->
+        <rect x="150" y="526" width="380" height="44" rx="7" fill="#1e2333" stroke="#4f9cf9" stroke-width="1"/>
+        <text x="240" y="544" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="#4f9cf9" font-weight="500">F1</text>
+        <text x="360" y="544" text-anchor="middle" font-family="'IBM Plex Sans',sans-serif" font-size="12" fill="#e8eaf0">Vol_Ratio ≥ 1.5×</text>
+        <text x="360" y="560" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="#8892aa">Vol(9:15) ÷ Vol_MA(10)</text>
+
+        <!-- F1 fail -->
+        <line x1="530" y1="548" x2="600" y2="548" stroke="#ff6b6b" stroke-width="1" marker-end="url(#arr-red)"/>
+        <text x="564" y="540" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="#ff6b6b">fail</text>
+        <rect x="600" y="530" width="60" height="36" rx="5" fill="#1e2333" stroke="#ff6b6b" stroke-width="1"/>
+        <text x="630" y="548" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="#ff6b6b">SKIP</text>
+        <text x="630" y="560" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="#8892aa">stock</text>
+
+        <line x1="340" y1="570" x2="340" y2="594" stroke="#4f9cf9" stroke-width="1" marker-end="url(#arr)"/>
+
+        <!-- F2 box -->
+        <rect x="150" y="596" width="380" height="44" rx="7" fill="#1e2333" stroke="#4f9cf9" stroke-width="1"/>
+        <text x="240" y="614" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="#4f9cf9" font-weight="500">F2</text>
+        <text x="360" y="614" text-anchor="middle" font-family="'IBM Plex Sans',sans-serif" font-size="12" fill="#e8eaf0">ATR(5)% ≥ threshold</text>
+        <text x="360" y="630" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="#8892aa">2.5% (high vol) or 1.75% (low vol)</text>
+
+        <!-- F2 fail -->
+        <line x1="530" y1="618" x2="600" y2="618" stroke="#ff6b6b" stroke-width="1" marker-end="url(#arr-red)"/>
+        <text x="564" y="610" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="#ff6b6b">fail</text>
+        <rect x="600" y="600" width="60" height="36" rx="5" fill="#1e2333" stroke="#ff6b6b" stroke-width="1"/>
+        <text x="630" y="618" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="#ff6b6b">SKIP</text>
+        <text x="630" y="630" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="#8892aa">stock</text>
+
+        <line x1="340" y1="640" x2="340" y2="664" stroke="#4f9cf9" stroke-width="1" marker-end="url(#arr)"/>
+
+        <!-- F3 box -->
+        <rect x="150" y="666" width="380" height="44" rx="7" fill="#1e2333" stroke="#4f9cf9" stroke-width="1"/>
+        <text x="240" y="684" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="#4f9cf9" font-weight="500">F3</text>
+        <text x="360" y="684" text-anchor="middle" font-family="'IBM Plex Sans',sans-serif" font-size="12" fill="#e8eaf0">|Gap%| ≥ 0.5%</text>
+        <text x="360" y="700" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="#8892aa">(Open − Prev Close) ÷ Prev Close × 100</text>
+
+        <!-- F3 fail -->
+        <line x1="530" y1="688" x2="600" y2="688" stroke="#ff6b6b" stroke-width="1" marker-end="url(#arr-red)"/>
+        <text x="564" y="680" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="#ff6b6b">fail</text>
+        <rect x="600" y="670" width="60" height="36" rx="5" fill="#1e2333" stroke="#ff6b6b" stroke-width="1"/>
+        <text x="630" y="688" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="#ff6b6b">SKIP</text>
+        <text x="630" y="700" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="#8892aa">stock</text>
+
+        <!-- Wait label -->
+        <line x1="340" y1="710" x2="340" y2="730" stroke="#4f9cf9" stroke-width="1"/>
+        <rect x="220" y="730" width="240" height="26" rx="5" fill="#171b25" stroke="#2a3147" stroke-width="1"/>
+        <text x="340" y="748" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="#8892aa">wait for 9:15 candle to close</text>
+        <line x1="340" y1="756" x2="340" y2="776" stroke="#4f9cf9" stroke-width="1" marker-end="url(#arr)"/>
+
+        <!-- F4 box -->
+        <rect x="150" y="778" width="380" height="54" rx="7" fill="#1e2333" stroke="#4f9cf9" stroke-width="1"/>
+        <text x="240" y="798" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="#4f9cf9" font-weight="500">F4</text>
+        <text x="360" y="798" text-anchor="middle" font-family="'IBM Plex Sans',sans-serif" font-size="12" fill="#e8eaf0">Triple alignment check</text>
+        <text x="340" y="814" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="#8892aa">Gap dir = 9:15 candle dir = Nifty vs MA(20)</text>
+        <text x="340" y="826" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="#8892aa">all three must agree</text>
+
+        <!-- F4 fail -->
+        <line x1="530" y1="805" x2="600" y2="805" stroke="#ff6b6b" stroke-width="1" marker-end="url(#arr-red)"/>
+        <text x="564" y="797" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="#ff6b6b">fail</text>
+        <rect x="600" y="787" width="60" height="36" rx="5" fill="#1e2333" stroke="#ff6b6b" stroke-width="1"/>
+        <text x="630" y="805" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="#ff6b6b">SKIP</text>
+        <text x="630" y="817" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="#8892aa">stock</text>
+
+        <!-- Wait 9:20 -->
+        <line x1="340" y1="832" x2="340" y2="852" stroke="#4f9cf9" stroke-width="1"/>
+        <rect x="220" y="852" width="240" height="26" rx="5" fill="#171b25" stroke="#2a3147" stroke-width="1"/>
+        <text x="340" y="870" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="#8892aa">wait for 9:20 candle to close</text>
+        <line x1="340" y1="878" x2="340" y2="898" stroke="#4f9cf9" stroke-width="1" marker-end="url(#arr)"/>
+
+        <!-- F5 box -->
+        <rect x="150" y="900" width="380" height="54" rx="7" fill="#1e2333" stroke="#4f9cf9" stroke-width="1"/>
+        <text x="240" y="920" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="#4f9cf9" font-weight="500">F5</text>
+        <text x="360" y="920" text-anchor="middle" font-family="'IBM Plex Sans',sans-serif" font-size="12" fill="#e8eaf0">9:20 candle confirms direction</text>
+        <text x="340" y="936" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="#8892aa">Long: 9:20 Close > Open</text>
+        <text x="340" y="948" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="#8892aa">Short: 9:20 Close &lt; Open</text>
+
+        <!-- F5 fail -->
+        <line x1="530" y1="927" x2="600" y2="927" stroke="#ff6b6b" stroke-width="1" marker-end="url(#arr-red)"/>
+        <text x="564" y="919" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="#ff6b6b">fail</text>
+        <rect x="600" y="909" width="60" height="36" rx="5" fill="#1e2333" stroke="#ff6b6b" stroke-width="1"/>
+        <text x="630" y="927" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="#ff6b6b">SKIP</text>
+        <text x="630" y="939" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="#8892aa">stock</text>
+
+        <line x1="340" y1="954" x2="340" y2="978" stroke="#4f9cf9" stroke-width="1" marker-end="url(#arr)"/>
+
+        <!-- SELECTOR box -->
+        <rect x="150" y="980" width="380" height="54" rx="7" fill="#1e2333" stroke="#38d9a9" stroke-width="1.5"/>
+        <text x="340" y="1000" text-anchor="middle" font-family="'IBM Plex Sans',sans-serif" font-size="12" font-weight="600" fill="#38d9a9">Module 3 — Select best trade</text>
+        <text x="340" y="1018" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="11" fill="#8892aa">Rank by Gap_ATR_Ratio = |Gap%| ÷ ATR(5)%</text>
+        <text x="340" y="1030" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="11" fill="#8892aa">Take stock with highest ratio</text>
+
+        <!-- No stocks path -->
+        <line x1="150" y1="1007" x2="90" y2="1007" stroke="#ff6b6b" stroke-width="1" marker-end="url(#arr-red)"/>
+        <text x="118" y="999" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="#ff6b6b">none</text>
+        <rect x="20" y="989" width="70" height="36" rx="5" fill="#1e2333" stroke="#ff6b6b" stroke-width="1"/>
+        <text x="55" y="1003" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="#ff6b6b">NO TRADE</text>
+        <text x="55" y="1017" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="9" fill="#8892aa">today</text>
+
+        <line x1="340" y1="1034" x2="340" y2="1058" stroke="#40c057" stroke-width="1.5" marker-end="url(#arr-green)"/>
+
+        <!-- ENTRY box -->
+        <rect x="150" y="1060" width="380" height="60" rx="7" fill="#1e2333" stroke="#40c057" stroke-width="1.5"/>
+        <text x="340" y="1083" text-anchor="middle" font-family="'IBM Plex Sans',sans-serif" font-size="12" font-weight="600" fill="#40c057">Enter trade at 9:25 AM</text>
+        <text x="340" y="1100" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="11" fill="#8892aa">Entry = 9:20 candle close price</text>
+        <text x="340" y="1113" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="11" fill="#8892aa">Set TP and SL immediately</text>
+
+        <line x1="340" y1="1120" x2="340" y2="1144" stroke="#40c057" stroke-width="1.5" marker-end="url(#arr-green)"/>
+
+        <!-- MONITOR box -->
+        <rect x="150" y="1146" width="380" height="70" rx="7" fill="#1e2333" stroke="#2a3147" stroke-width="1"/>
+        <text x="340" y="1168" text-anchor="middle" font-family="'IBM Plex Sans',sans-serif" font-size="12" font-weight="600" fill="#e8eaf0">Monitor — exit rules</text>
+        <text x="340" y="1186" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="#40c057">TP hit → close long/short, done for day</text>
+        <text x="340" y="1200" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="#ff6b6b">SL hit → close long/short, done for day</text>
+        <text x="340" y="1214" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="10" fill="#fcc419">3:20 PM → EOD exit at market</text>
+
+        <line x1="340" y1="1216" x2="340" y2="1244" stroke="#4f9cf9" stroke-width="1" marker-end="url(#arr)"/>
+
+        <!-- END -->
+        <rect x="230" y="1246" width="220" height="44" rx="22" fill="#1e2333" stroke="#38d9a9" stroke-width="1.5"/>
+        <text x="340" y="1274" text-anchor="middle" font-family="'IBM Plex Mono',monospace" font-size="12" fill="#38d9a9" font-weight="500">END — 1 trade done</text>
+      </svg>
+    </div>
+
+    <hr class="divider">
+
+    <!-- ─────────── QUICK REFERENCE ─────────── -->
+    <h2 id="quick-ref"><span class="section-num">08</span>Quick reference card</h2>
+
+    <table class="def-table">
+      <thead><tr><th>Check</th><th>Formula</th><th>Pass condition</th></tr></thead>
+      <tbody>
+        <tr><td>Regime (VIX clear)</td><td>Read India VIX</td><td>Below 15 → low vol · Above 20 → high vol</td></tr>
+        <tr><td>Regime (VIX 15–20)</td><td>Avg ATR(5)% of scan stocks</td><td>≥ 2.5% → high vol · Below → low vol</td></tr>
+        <tr><td>F1 Volume surge</td><td>Vol(9:15) ÷ Vol_MA(10)</td><td>≥ 1.5×</td></tr>
+        <tr><td>F2 ATR regime</td><td>ATR(5)% of stock</td><td>≥ 2.5% (high vol) or ≥ 1.75% (low vol)</td></tr>
+        <tr><td>F3 Gap size</td><td>|Open − Prev Close| ÷ Prev Close × 100</td><td>≥ 0.5%</td></tr>
+        <tr><td>F4 Triple alignment</td><td>Gap dir + Candle dir + Nifty vs MA(20)</td><td>All three must agree</td></tr>
+        <tr><td>F5 Confirmation</td><td>9:20 candle direction</td><td>Must match gap direction</td></tr>
+        <tr><td>Selector</td><td>|Gap%| ÷ ATR(5)%</td><td>Highest value wins</td></tr>
+        <tr><td>TP (high vol)</td><td>Entry × 1.0125 (long) · Entry × 0.9875 (short)</td><td>Close on touch</td></tr>
+        <tr><td>TP (low vol)</td><td>Entry × 1.01 (long) · Entry × 0.99 (short)</td><td>Close on touch</td></tr>
+        <tr><td>SL (both)</td><td>Entry × 0.9925 (long) · Entry × 1.0075 (short)</td><td>Close on touch</td></tr>
+        <tr><td>EOD exit</td><td>Time check</td><td>3:20 PM → exit at market regardless</td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout callout-danger" style="margin-top:24px;">
+      <div class="callout-title">Hard rules — never violate</div>
+      1. One trade per day maximum — no exceptions even if multiple stocks fully pass.<br>
+      2. Never enter during the 9:20 candle. Wait for it to fully close at 9:25:00.<br>
+      3. Never widen the stop loss after entry. If SL is hit, close and stop.<br>
+      4. Never hold an intraday position overnight. EOD exit is mandatory by 3:20 PM.<br>
+      5. No trade is also a valid outcome. Zero qualifying stocks = no trade, no exceptions.
+    </div>
+
+    <p style="margin-top:40px;font-size:12px;color:var(--muted);font-family:var(--mono);">
+      Strategy rulebook v1.0 · Backtest: Jan 2024–Feb 2026 · 287 trades · 57.8% WR · Max DD −5.03% (no limit) / −3.64% (1-trade/day, gap/ATR selector)
+    </p>
+
+  </main>
+</div>
+
+<script>
+  // Active nav on scroll
+  const sections = document.querySelectorAll('h2[id], h3[id]');
+  const navLinks = document.querySelectorAll('.nav-link');
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        navLinks.forEach(l => l.classList.remove('active'));
+        const link = document.querySelector(`.nav-link[href="#${e.target.id}"]`);
+        if (link) link.classList.add('active');
+      }
+    });
+  }, { rootMargin: '-20% 0px -70% 0px' });
+  sections.forEach(s => observer.observe(s));
+</script>
+</body>
+</html>

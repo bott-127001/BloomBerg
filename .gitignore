@@ -24,3 +24,6 @@ Thumbs.db
 # Cursor
 .cursor/
 
+# Local-only docs
+nifty50_strategy_rulebook.html
+

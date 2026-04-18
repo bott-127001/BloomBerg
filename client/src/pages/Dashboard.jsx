@@ -152,7 +152,7 @@ export default function Dashboard() {
             pendingBanner={
               today?.status === 'FAILED' && !(today.scanDetails && today.scanDetails.length)
                 ? 'Scan failed before per-stock rows were available.'
-                : 'Scan runs at 9:28 AM IST'
+                : 'Prewarm starts at 9:00 AM IST. Scan runs at 9:22 AM IST.'
             }
           />
         </>

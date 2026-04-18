@@ -7,7 +7,7 @@ const router = express.Router();
 router.get('/today', async (_req, res) => {
   const doc = await DailySignal.findOne({ date: getTodayIST() });
   if (!doc) {
-    return res.json({ status: 'pending', message: 'Scan runs at 9:28 AM IST' });
+    return res.json({ status: 'pending', message: 'Prewarm starts at 9:00 AM IST. Scan runs at 9:22 AM IST.' });
   }
   return res.json(doc);
 });

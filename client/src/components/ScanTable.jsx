@@ -39,7 +39,7 @@ function resultClass(result) {
   return 'text-slate-400';
 }
 
-export default function ScanTable({ rows, pending, pendingBanner = 'Scan runs at 9:28 AM IST' }) {
+export default function ScanTable({ rows, pending, pendingBanner = 'Prewarm starts at 9:00 AM IST. Scan runs at 9:22 AM IST.' }) {
   const sorted = pending ? [] : [...(rows || [])].sort(compareRows);
   const factorIcon = (v) =>
     v ? (

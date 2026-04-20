@@ -21,11 +21,19 @@ const {
   computeGapAtrRatio,
   getPrevCloseFromDaily
 } = require('./calculations');
-const { evaluateFilters } = require('./filters');
+const { evaluateFiltersPhase14, passesF5Only } = require('./filters');
 const { getTodayIST, isWeekendIST } = require('../utils/dateUtils');
 const { HOLIDAYS_2025, HOLIDAYS_2026 } = require('./nseHolidays');
 
-let status = { running: false, lastRanAt: null, lastStatus: 'IDLE' };
+/** In-memory handoff between phase 1 (9:21) and phase 2 (9:26) within one process. */
+let phase1Shortlist = null;
+
+let status = {
+  running: false,
+  lastRanAt: null,
+  lastStatus: 'IDLE',
+  phase: 'IDLE'
+};
 
 function isHoliday(dateStr) {
   return HOLIDAYS_2025.includes(dateStr) || HOLIDAYS_2026.includes(dateStr);
@@ -50,11 +58,10 @@ function previousISTDate(yyyyMmDd) {
 }
 
 function lastExpectedTradingDate(today) {
-  // Expect previous trading session (skip weekends/holidays).
   let d = previousISTDate(today);
   if (!d) return null;
   while (true) {
-    const dow = new Date(`${d}T00:00:00Z`).getUTCDay(); // 0 Sun ... 6 Sat
+    const dow = new Date(`${d}T00:00:00Z`).getUTCDay();
     const weekend = dow === 0 || dow === 6;
     if (!weekend && !isHoliday(d)) return d;
     d = previousISTDate(d);
@@ -63,13 +70,11 @@ function lastExpectedTradingDate(today) {
 }
 
 function isDailyBarFreshEnough(lastDailyDate, today) {
-  // Hybrid: allow weekend gap (Fri->Mon is 3 calendar days) plus one extra day per consecutive holiday.
-  // Also accept the exact last expected trading session date.
   if (!lastDailyDate) return false;
   const expected = lastExpectedTradingDate(today);
   if (expected && lastDailyDate === expected) return true;
 
-  let allowedDays = 3; // covers Fri -> Mon
+  let allowedDays = 3;
   let cursor = today;
   while (true) {
     cursor = previousISTDate(cursor);
@@ -81,7 +86,7 @@ function isDailyBarFreshEnough(lastDailyDate, today) {
       allowedDays += 1;
       continue;
     }
-    break; // reached last non-holiday weekday
+    break;
   }
 
   const diffDays = dayDiffFromTodayIST(lastDailyDate);
@@ -130,28 +135,86 @@ function dayDiffFromTodayIST(yyyyMmDd) {
   return Math.floor((today - target) / (24 * 60 * 60 * 1000));
 }
 
-async function runScan({ manual = false } = {}) {
-  if (status.running) return;
-  status.running = true;
-  status.lastRanAt = new Date();
-  status.lastStatus = 'RUNNING';
-  limiter.startScanCounter();
+function phase1ScanRowToDetail(row, regime) {
+  if (row.fetchFailed) {
+    return {
+      symbol: row.symbol,
+      volRatio: null,
+      atrPct: null,
+      gapPct: null,
+      gapAtrRatio: null,
+      f1Pass: false,
+      f2Pass: false,
+      f3Pass: false,
+      f4Pass: false,
+      f5Pass: null,
+      allPass: false,
+      isSelected: false,
+      result: 'FAILED_FETCH'
+    };
+  }
+
+  const f = evaluateFiltersPhase14({
+    regime,
+    volRatio: row.volRatio,
+    atrPct: row.atrPct,
+    gapPct: row.gapPct,
+    gapDirection: row.gapDirection,
+    candle915Direction: row.candle915Direction,
+    niftyDirection: row.niftyDirection
+  });
+
+  let result = 'FAILED_F1';
+  if (!f.f1Pass) result = 'FAILED_F1';
+  else if (!f.f2Pass) result = 'FAILED_F2';
+  else if (!f.f3Pass) result = 'FAILED_F3';
+  else if (!f.f4Pass) result = 'FAILED_F4';
+  else result = 'PASSED_F14';
+
+  return {
+    symbol: row.symbol,
+    volRatio: row.volRatio,
+    atrPct: row.atrPct,
+    gapPct: row.gapPct,
+    gapAtrRatio: row.gapAtrRatio,
+    f1Pass: f.f1Pass,
+    f2Pass: f.f2Pass,
+    f3Pass: f.f3Pass,
+    f4Pass: f.f4Pass,
+    f5Pass: null,
+    allPass: false,
+    isSelected: false,
+    result
+  };
+}
+
+async function runScanPhase1({ manual = false } = {}) {
+  if (status.phase === 'PHASE1_RUNNING' || status.phase === 'PHASE2_RUNNING') return;
 
   const today = getTodayIST();
   if (!manual && (isWeekendIST() || isHoliday(today))) {
-    status.running = false;
     status.lastStatus = 'SKIPPED';
-    limiter.stopScanCounter();
     return;
   }
 
+  status.running = true;
+  status.lastRanAt = new Date();
+  status.lastStatus = 'RUNNING';
+  status.phase = 'PHASE1_RUNNING';
+  limiter.startScanCounter();
+
   try {
     const existing = await DailySignal.findOne({ date: today }).select('status');
-    if (!manual && existing && (existing.status === 'COMPLETED' || existing.status === 'NO_TRADE')) {
-      console.log(`Scan skipped: already has status ${existing.status} for ${today}`);
+    if (
+      !manual &&
+      existing &&
+      (existing.status === 'COMPLETED' || existing.status === 'NO_TRADE' || existing.status === 'PHASE1_DONE')
+    ) {
+      console.log(`Phase 1 skipped: already has status ${existing.status} for ${today}`);
       status.lastStatus = 'SKIPPED_ALREADY_DONE';
       return;
     }
+
     const niftyDaily = await getDailyCandles('NSE_INDEX|Nifty 50');
     const niftyIntraday = await getIntradayCandles('NSE_INDEX|Nifty 50');
     const vixDaily = await getDailyCandles('NSE_INDEX|India VIX');
@@ -163,7 +226,7 @@ async function runScan({ manual = false } = {}) {
     const vixUsed = Number(vixDaily[vixDaily.length - 1][4]);
     const niftyDirection = directionFromNiftyOpen(Number(niftyIntraday[0][1]), niftyMA20);
 
-    const preRows = [];
+    const stockRows = [];
     const atrValues = [];
 
     for (const item of nifty50) {
@@ -182,7 +245,7 @@ async function runScan({ manual = false } = {}) {
         const prevClose = getPrevCloseFromDaily(daily);
         const fiveMin =
           getCached5Min(item.instrumentKey) ||
-          (await getHistorical5MinCandles(item.instrumentKey, dateShift(14), dateShift(0)));
+          (await getHistorical5MinCandles(item.instrumentKey, dateShift(22), dateShift(0)));
         const volMA10 = computeVolMA10From915(fiveMin);
         const vol915 = Number(intraday[0][5]);
         if (volMA10 == null) {
@@ -195,35 +258,25 @@ async function runScan({ manual = false } = {}) {
         const gapPct = computeGapPct(Number(intraday[0][1]), prevClose);
         const gapDirection = directionFromGap(gapPct);
         const candle915Direction = directionFromCandle(intraday[0]);
-        const candle920Direction = directionFromCandle(intraday[1]);
         const gapAtrRatio = computeGapAtrRatio(gapPct, atrPct);
 
-        preRows.push({
+        stockRows.push({
           symbol: item.symbol,
-          daily,
-          intraday,
+          instrumentKey: item.instrumentKey,
           volRatio,
           atrPct,
           gapPct,
           gapAtrRatio,
           gapDirection,
           candle915Direction,
-          candle920Direction,
-          niftyDirection
+          niftyDirection,
+          fetchFailed: false
         });
       } catch (error) {
         console.error(`Stock fetch failed for ${item.symbol}:`, error.message);
-        preRows.push({
+        stockRows.push({
           symbol: item.symbol,
-          intraday: [null, null],
-          volRatio: null,
-          atrPct: null,
-          gapPct: null,
-          gapAtrRatio: null,
-          gapDirection: null,
-          candle915Direction: null,
-          candle920Direction: null,
-          niftyDirection: null,
+          instrumentKey: item.instrumentKey,
           fetchFailed: true
         });
       }
@@ -231,90 +284,23 @@ async function runScan({ manual = false } = {}) {
 
     const { regime, avgAtrScan } = await detectRegime(vixUsed, atrValues.filter((v) => v != null));
 
-    const evaluated = preRows.map((row) => {
-      if (row.fetchFailed) {
-        return {
-          symbol: row.symbol,
-          volRatio: null,
-          atrPct: null,
-          gapPct: null,
-          gapAtrRatio: null,
-          f1Pass: false,
-          f2Pass: false,
-          f3Pass: false,
-          f4Pass: false,
-          f5Pass: false,
-          allPass: false,
-          isSelected: false,
-          result: 'FAILED_FETCH',
-          entryPrice: null,
-          gapDirection: null
-        };
-      }
-      const f = evaluateFilters({
-        regime,
-        volRatio: row.volRatio,
-        atrPct: row.atrPct,
-        gapPct: row.gapPct,
-        gapDirection: row.gapDirection,
-        candle915Direction: row.candle915Direction,
-        candle920Direction: row.candle920Direction,
-        niftyDirection: row.niftyDirection
-      });
+    const allRowsDetails = stockRows.map((row) => phase1ScanRowToDetail(row, regime));
 
-      return {
-        symbol: row.symbol,
-        volRatio: row.volRatio,
-        atrPct: row.atrPct,
-        gapPct: row.gapPct,
-        gapAtrRatio: row.gapAtrRatio,
-        f1Pass: f.f1Pass,
-        f2Pass: f.f2Pass,
-        f3Pass: f.f3Pass,
-        f4Pass: f.f4Pass,
-        f5Pass: f.f5Pass,
-        allPass: f.allPass,
-        isSelected: false,
-        result: f.allPass ? 'PASSED' : `FAILED_${f.failedAt}`,
-        entryPrice: Number(row.intraday[1][4]),
-        gapDirection: row.gapDirection
-      };
-    });
+    const shortlistSymbols = allRowsDetails.filter((r) => r.result === 'PASSED_F14').map((r) => r.symbol);
 
-    const winners = evaluated.filter((x) => x.allPass).sort((a, b) => (b.gapAtrRatio || 0) - (a.gapAtrRatio || 0));
-    const selected = winners[0] || null;
+    const shortlist = stockRows.filter((row) => !row.fetchFailed && shortlistSymbols.includes(row.symbol));
 
-    let signal = 'NO_TRADE';
-    let stock = null;
-    let entryPrice = null;
-    let tpPrice = null;
-    let slPrice = null;
-    let chosen = null;
+    phase1Shortlist = {
+      date: today,
+      regime,
+      vixUsed,
+      avgAtrScan,
+      niftyDirection,
+      shortlist,
+      allRows: stockRows
+    };
 
-    if (selected) {
-      signal = selected.gapDirection === 'BULLISH' ? 'LONG' : 'SHORT';
-      stock = selected.symbol;
-      entryPrice = selected.entryPrice;
-      if (regime === 'HIGH_VOL') {
-        tpPrice = signal === 'LONG' ? entryPrice * 1.0125 : entryPrice * 0.9875;
-      } else {
-        tpPrice = signal === 'LONG' ? entryPrice * 1.01 : entryPrice * 0.99;
-      }
-      slPrice = signal === 'LONG' ? entryPrice * 0.9925 : entryPrice * 1.0075;
-      entryPrice = round2(entryPrice);
-      tpPrice = round2(tpPrice);
-      slPrice = round2(slPrice);
-      chosen = selected;
-    }
-
-    const scanDetails = evaluated.map((row) => {
-      const isSelected = !!chosen && row.symbol === chosen.symbol;
-      return {
-        ...row,
-        isSelected,
-        result: isSelected ? 'SELECTED' : row.result
-      };
-    });
+    const scanDetails = sortScanRows(allRowsDetails);
 
     await DailySignal.findOneAndUpdate(
       { date: today },
@@ -323,26 +309,28 @@ async function runScan({ manual = false } = {}) {
         regime,
         vixUsed,
         avgAtrScan,
-        signal,
-        stock,
-        entryPrice,
-        tpPrice,
-        slPrice,
-        gapPct: chosen?.gapPct ?? null,
-        atrPct: chosen?.atrPct ?? null,
-        volRatio: chosen?.volRatio ?? null,
-        gapAtrRatio: chosen?.gapAtrRatio ?? null,
+        signal: 'NO_TRADE',
+        stock: null,
+        entryPrice: null,
+        tpPrice: null,
+        slPrice: null,
+        gapPct: null,
+        atrPct: null,
+        volRatio: null,
+        gapAtrRatio: null,
         scanRanAt: new Date(),
-        status: signal === 'NO_TRADE' ? 'NO_TRADE' : 'COMPLETED',
+        status: 'PHASE1_DONE',
         errorMessage: null,
-        scanDetails: sortScanRows(scanDetails)
+        scanDetails
       },
       { upsert: true, new: true }
     );
 
     status.lastStatus = 'COMPLETED';
+    const names = shortlistSymbols.join(', ');
+    console.log(`Phase 1 complete. Shortlist: ${shortlistSymbols.length} stocks passed F1-F4: ${names}`);
   } catch (error) {
-    console.error('Scan failed:', error.message);
+    console.error('Phase 1 failed:', error.message);
     await DailySignal.findOneAndUpdate(
       { date: getTodayIST() },
       {
@@ -358,7 +346,271 @@ async function runScan({ manual = false } = {}) {
   } finally {
     status.running = false;
     limiter.stopScanCounter();
+    if (status.phase === 'PHASE1_RUNNING') {
+      status.phase = status.lastStatus === 'FAILED' ? 'FAILED' : 'IDLE';
+    }
   }
+}
+
+async function runScanPhase2({ manual = false } = {}) {
+  if (status.phase === 'PHASE1_RUNNING' || status.phase === 'PHASE2_RUNNING') return;
+
+  const today = getTodayIST();
+  if (!manual && (isWeekendIST() || isHoliday(today))) {
+    status.lastStatus = 'SKIPPED';
+    return;
+  }
+
+  status.running = true;
+  status.lastRanAt = new Date();
+  status.lastStatus = 'RUNNING';
+  status.phase = 'PHASE2_RUNNING';
+  limiter.startScanCounter();
+
+  try {
+    const existing = await DailySignal.findOne({ date: today }).select('status');
+    if (!manual && existing && (existing.status === 'COMPLETED' || existing.status === 'NO_TRADE')) {
+      console.log(`Phase 2 skipped: already has status ${existing.status} for ${today}`);
+      status.lastStatus = 'SKIPPED_ALREADY_DONE';
+      return;
+    }
+
+    if ((!phase1Shortlist || phase1Shortlist.date !== today) && existing?.status === 'PHASE1_DONE') {
+      const doc = await DailySignal.findOne({ date: today });
+      const keyBySymbol = new Map(nifty50.map((x) => [x.symbol, x.instrumentKey]));
+      const shortlistFromDb = (doc?.scanDetails || [])
+        .filter((r) => r.result === 'PASSED_F14')
+        .map((r) => ({
+          symbol: r.symbol,
+          instrumentKey: keyBySymbol.get(r.symbol),
+          volRatio: r.volRatio,
+          atrPct: r.atrPct,
+          gapPct: r.gapPct,
+          gapAtrRatio: r.gapAtrRatio,
+          gapDirection: directionFromGap(Number(r.gapPct)),
+          fetchFailed: false
+        }))
+        .filter((r) => r.instrumentKey);
+
+      phase1Shortlist = {
+        date: today,
+        regime: doc.regime,
+        vixUsed: doc.vixUsed,
+        avgAtrScan: doc.avgAtrScan,
+        niftyDirection: null,
+        shortlist: shortlistFromDb,
+        allRows: []
+      };
+    }
+
+    if (!phase1Shortlist || phase1Shortlist.date !== today) {
+      const msg = 'Phase 1 result not found for today — aborting phase 2';
+      console.error(msg);
+      await DailySignal.findOneAndUpdate(
+        { date: today },
+        { date: today, status: 'FAILED', errorMessage: msg, scanRanAt: new Date() },
+        { upsert: true, new: true }
+      );
+      status.lastStatus = 'FAILED';
+      return;
+    }
+
+    const { regime, vixUsed, avgAtrScan, shortlist } = phase1Shortlist;
+
+    const prevDetails = await DailySignal.findOne({ date: today }).select('scanDetails');
+    const detailBySymbol = new Map((prevDetails?.scanDetails || []).map((r) => [r.symbol, { ...r }]));
+
+    if (!shortlist.length) {
+      const scanDetails = sortScanRows([...(detailBySymbol.values())]);
+      await DailySignal.findOneAndUpdate(
+        { date: today },
+        {
+          date: today,
+          regime,
+          vixUsed,
+          avgAtrScan,
+          signal: 'NO_TRADE',
+          stock: null,
+          entryPrice: null,
+          tpPrice: null,
+          slPrice: null,
+          gapPct: null,
+          atrPct: null,
+          volRatio: null,
+          gapAtrRatio: null,
+          scanRanAt: new Date(),
+          status: 'NO_TRADE',
+          errorMessage: null,
+          scanDetails
+        },
+        { upsert: true, new: true }
+      );
+      phase1Shortlist = null;
+      status.lastStatus = 'COMPLETED';
+      console.log('Phase 2 complete. Signal: NO_TRADE Entry: null TP: null SL: null');
+      return;
+    }
+
+    const phase2Evaluated = [];
+
+    for (const row of shortlist) {
+      try {
+        const intraday = await getIntradayCandles(row.instrumentKey);
+        if (intraday.length < 2) {
+          throw new Error('Not enough intraday candles');
+        }
+        const candle920Direction = directionFromCandle(intraday[1]);
+        const f5Pass = passesF5Only(row.gapDirection, candle920Direction);
+
+        phase2Evaluated.push({
+          symbol: row.symbol,
+          gapDirection: row.gapDirection,
+          gapPct: row.gapPct,
+          atrPct: row.atrPct,
+          volRatio: row.volRatio,
+          gapAtrRatio: row.gapAtrRatio,
+          candle920Direction,
+          f5Pass,
+          intraday,
+          fetchFailed: false
+        });
+      } catch (error) {
+        console.error(`Phase 2 fetch failed for ${row.symbol}:`, error.message);
+        phase2Evaluated.push({
+          symbol: row.symbol,
+          gapDirection: row.gapDirection,
+          gapPct: row.gapPct,
+          atrPct: row.atrPct,
+          volRatio: row.volRatio,
+          gapAtrRatio: row.gapAtrRatio,
+          candle920Direction: null,
+          f5Pass: false,
+          intraday: null,
+          fetchFailed: true
+        });
+      }
+    }
+
+    const winners = phase2Evaluated
+      .filter((x) => !x.fetchFailed && x.f5Pass)
+      .sort((a, b) => (b.gapAtrRatio || 0) - (a.gapAtrRatio || 0));
+
+    const selected = winners[0] || null;
+
+    let signal = 'NO_TRADE';
+    let stock = null;
+    let entryPrice = null;
+    let tpPrice = null;
+    let slPrice = null;
+    let chosenSymbol = null;
+
+    if (selected && selected.intraday) {
+      signal = selected.gapDirection === 'BULLISH' ? 'LONG' : 'SHORT';
+      stock = selected.symbol;
+      entryPrice = Number(selected.intraday[1][4]);
+      if (regime === 'HIGH_VOL') {
+        tpPrice = signal === 'LONG' ? entryPrice * 1.0125 : entryPrice * 0.9875;
+      } else {
+        tpPrice = signal === 'LONG' ? entryPrice * 1.01 : entryPrice * 0.99;
+      }
+      slPrice = signal === 'LONG' ? entryPrice * 0.9925 : entryPrice * 1.0075;
+      entryPrice = round2(entryPrice);
+      tpPrice = round2(tpPrice);
+      slPrice = round2(slPrice);
+      chosenSymbol = stock;
+    }
+
+    for (const ev of phase2Evaluated) {
+      const base = detailBySymbol.get(ev.symbol);
+      if (!base) continue;
+
+      let result = base.result;
+      if (base.result === 'PASSED_F14') {
+        if (ev.fetchFailed) result = 'FAILED_FETCH';
+        else if (!ev.f5Pass) result = 'FAILED_F5';
+        else result = 'PASSED';
+      }
+
+      const allPass = base.f4Pass && !ev.fetchFailed && ev.f5Pass;
+
+      detailBySymbol.set(ev.symbol, {
+        ...base,
+        f5Pass: ev.fetchFailed ? false : ev.f5Pass,
+        allPass,
+        result,
+        isSelected: false
+      });
+    }
+
+    if (chosenSymbol) {
+      const sel = detailBySymbol.get(chosenSymbol);
+      if (sel) {
+        detailBySymbol.set(chosenSymbol, {
+          ...sel,
+          isSelected: true,
+          result: 'SELECTED'
+        });
+      }
+    }
+
+    const scanDetails = sortScanRows([...detailBySymbol.values()]);
+
+    const chosenRow = chosenSymbol ? detailBySymbol.get(chosenSymbol) : null;
+
+    await DailySignal.findOneAndUpdate(
+      { date: today },
+      {
+        date: today,
+        regime,
+        vixUsed,
+        avgAtrScan,
+        signal,
+        stock,
+        entryPrice,
+        tpPrice,
+        slPrice,
+        gapPct: chosenRow?.gapPct ?? null,
+        atrPct: chosenRow?.atrPct ?? null,
+        volRatio: chosenRow?.volRatio ?? null,
+        gapAtrRatio: chosenRow?.gapAtrRatio ?? null,
+        scanRanAt: new Date(),
+        status: signal === 'NO_TRADE' ? 'NO_TRADE' : 'COMPLETED',
+        errorMessage: null,
+        scanDetails
+      },
+      { upsert: true, new: true }
+    );
+
+    phase1Shortlist = null;
+    status.lastStatus = 'COMPLETED';
+
+    console.log(`Phase 2 complete. Signal: ${signal} ${stock || ''} Entry: ${entryPrice ?? 'null'} TP: ${tpPrice ?? 'null'} SL: ${slPrice ?? 'null'}`);
+  } catch (error) {
+    console.error('Phase 2 failed:', error.message);
+    await DailySignal.findOneAndUpdate(
+      { date: getTodayIST() },
+      {
+        date: getTodayIST(),
+        status: 'FAILED',
+        errorMessage: error.message,
+        scanRanAt: new Date(),
+        avgAtrScan: null
+      },
+      { upsert: true, new: true }
+    );
+    status.lastStatus = 'FAILED';
+  } finally {
+    status.running = false;
+    limiter.stopScanCounter();
+    if (status.phase === 'PHASE2_RUNNING') {
+      status.phase = status.lastStatus === 'FAILED' ? 'FAILED' : 'IDLE';
+    }
+  }
+}
+
+async function triggerFullScanManual() {
+  await runScanPhase1({ manual: true });
+  await runScanPhase2({ manual: true });
 }
 
 async function runPrewarm() {
@@ -367,7 +619,7 @@ async function runPrewarm() {
   await prewarmDailyCache(instruments);
   for (const item of nifty50) {
     try {
-      await getHistorical5MinCandles(item.instrumentKey, dateShift(14), dateShift(0));
+      await getHistorical5MinCandles(item.instrumentKey, dateShift(22), dateShift(0));
     } catch (error) {
       console.error(`Prewarm 5m failed for ${item.symbol}:`, error.message);
     }
@@ -380,8 +632,28 @@ async function markEOD() {
   await DailySignal.findOneAndUpdate({ date: today }, { eodMarkedAt: new Date() });
 }
 
-function getScanStatus() {
-  return status;
+async function getScanStatus() {
+  if (status.running || status.phase === 'PHASE1_RUNNING' || status.phase === 'PHASE2_RUNNING') {
+    return { ...status };
+  }
+
+  const today = getTodayIST();
+  const doc = await DailySignal.findOne({ date: today }).select('status');
+  const st = doc?.status;
+
+  let phase = 'IDLE';
+  if (st === 'PHASE1_DONE') phase = 'PHASE1_DONE';
+  else if (st === 'FAILED') phase = 'FAILED';
+  else if (st === 'COMPLETED' || st === 'NO_TRADE') phase = 'COMPLETED';
+
+  return { ...status, phase };
 }
 
-module.exports = { runScan, runPrewarm, markEOD, getScanStatus };
+module.exports = {
+  runScanPhase1,
+  runScanPhase2,
+  triggerFullScanManual,
+  runPrewarm,
+  markEOD,
+  getScanStatus
+};

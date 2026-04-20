@@ -142,7 +142,7 @@ async function getIntradayOneMinuteCandles(instrumentKey) {
   return candles;
 }
 
-async function getHistorical5MinCandles(instrumentKey, fromDate = dateShift(14), toDate = dateShift(0)) {
+async function getHistorical5MinCandles(instrumentKey, fromDate = dateShift(22), toDate = dateShift(0)) {
   const cacheKey = `${getTodayIST()}::${instrumentKey}`;
   if (fiveMinHistoryCache.has(cacheKey)) {
     return fiveMinHistoryCache.get(cacheKey);

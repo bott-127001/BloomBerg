@@ -1,4 +1,4 @@
-﻿require('dotenv').config();
+require('dotenv').config();
 const express = require('express');
 const cookieParser = require('cookie-parser');
 const cors = require('cors');
@@ -38,6 +38,9 @@ app.use(cookieParser());
 
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+app.head('/health', (_req, res) => {
+  res.status(200).end();
 });
 
 app.use('/api/auth', authRoutes);

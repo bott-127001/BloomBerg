@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ScanTable from '../components/ScanTable';
 import HistoryTable from '../components/HistoryTable';
@@ -152,7 +152,7 @@ export default function Dashboard() {
             pendingBanner={
               today?.status === 'FAILED' && !(today.scanDetails && today.scanDetails.length)
                 ? 'Scan failed before per-stock rows were available.'
-                : 'Prewarm starts at 9:00 AM IST. Scan runs at 9:22 AM IST.'
+                : 'Prewarm starts at 9:00 AM IST. Scan phase 1 at 9:21 IST, phase 2 at 9:26 IST.'
             }
           />
         </>

@@ -1,4 +1,4 @@
-﻿function evaluateFilters(input) {
+function evaluateFilters(input) {
   const result = {
     f1Pass: false,
     f2Pass: false,
@@ -53,4 +53,53 @@
   return result;
 }
 
-module.exports = { evaluateFilters };
+function evaluateFiltersPhase14(input) {
+  const result = {
+    f1Pass: false,
+    f2Pass: false,
+    f3Pass: false,
+    f4Pass: false,
+    failedAt: 'F1'
+  };
+
+  if (input.volRatio >= 1.5) {
+    result.f1Pass = true;
+  } else {
+    return result;
+  }
+
+  const atrThreshold = input.regime === 'HIGH_VOL' ? 2.5 : 1.75;
+  if (input.atrPct >= atrThreshold) {
+    result.f2Pass = true;
+  } else {
+    result.failedAt = 'F2';
+    return result;
+  }
+
+  if (Math.abs(input.gapPct) >= 0.5) {
+    result.f3Pass = true;
+  } else {
+    result.failedAt = 'F3';
+    return result;
+  }
+
+  if (
+    input.gapDirection &&
+    input.gapDirection === input.candle915Direction &&
+    input.candle915Direction === input.niftyDirection &&
+    input.candle915Direction !== 'DOJI'
+  ) {
+    result.f4Pass = true;
+    result.failedAt = null;
+    return result;
+  }
+
+  result.failedAt = 'F4';
+  return result;
+}
+
+function passesF5Only(gapDirection, candle920Direction) {
+  return candle920Direction === gapDirection;
+}
+
+module.exports = { evaluateFilters, evaluateFiltersPhase14, passesF5Only };

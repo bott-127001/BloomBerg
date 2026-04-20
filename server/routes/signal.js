@@ -1,4 +1,4 @@
-﻿const express = require('express');
+const express = require('express');
 const DailySignal = require('../models/DailySignal');
 const { getTodayIST } = require('../utils/dateUtils');
 
@@ -7,7 +7,7 @@ const router = express.Router();
 router.get('/today', async (_req, res) => {
   const doc = await DailySignal.findOne({ date: getTodayIST() });
   if (!doc) {
-    return res.json({ status: 'pending', message: 'Prewarm starts at 9:00 AM IST. Scan runs at 9:22 AM IST.' });
+    return res.json({ status: 'pending', message: 'Prewarm starts at 9:00 AM IST. Scan phase 1 at 9:21 IST, phase 2 at 9:26 IST.' });
   }
   return res.json(doc);
 });

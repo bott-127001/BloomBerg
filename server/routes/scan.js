@@ -1,15 +1,20 @@
-﻿const express = require('express');
-const { runScan, getScanStatus } = require('../strategy/pipeline');
+const express = require('express');
+const { triggerFullScanManual, getScanStatus } = require('../strategy/pipeline');
 
 const router = express.Router();
 
 router.post('/trigger', async (_req, res) => {
-  runScan({ manual: true }).catch((e) => console.error(e));
-  res.json({ message: 'Scan triggered' });
+  try {
+    await triggerFullScanManual();
+    res.json({ message: 'Scan triggered (phase 1 + phase 2)' });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ message: 'Scan failed', error: e.message });
+  }
 });
 
 router.get('/status', async (_req, res) => {
-  res.json(getScanStatus());
+  res.json(await getScanStatus());
 });
 
 module.exports = router;

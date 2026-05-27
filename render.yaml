@@ -1,9 +1,9 @@
-﻿services:
+services:
   - type: web
     name: nifty-signal
     env: node
     plan: free
-    buildCommand: npm install && npm run build
+    buildCommand: npm install --include=dev && npm run build
     startCommand: npm start
     healthCheckPath: /health
     envVars:
